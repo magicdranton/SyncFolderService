@@ -20,6 +20,7 @@ namespace SyncFolderService
             {
                 return;
             }
+                    if (m_LastRun == null && WeeklyScheduler.IsTimeForRun(now, m_Options.Schedule))
 
             while (!stoppingToken.IsCancellationRequested)
             {

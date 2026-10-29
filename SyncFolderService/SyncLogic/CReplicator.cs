@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace SyncFolderService.SyncLogic
 {
@@ -29,18 +30,19 @@ namespace SyncFolderService.SyncLogic
         };
 
         private readonly ILogger<CReplicator> m_Logger;
-        private readonly string m_Source;
-        private readonly string m_Destination;
+        private string m_Source;
+        private string m_Destination;
 
-        public CReplicator(string source, string destination, ILogger<CReplicator> logger)
+        public CReplicator(IOptions<SyncFolderServiceOptions> SyncOptions, ILogger<CReplicator> logger)
         {
-            ArgumentException.ThrowIfNullOrWhiteSpace(source);
-            ArgumentException.ThrowIfNullOrWhiteSpace(destination);
+            var options = SyncOptions.Value;
+            ArgumentException.ThrowIfNullOrWhiteSpace(options.SourcePath);
+            ArgumentException.ThrowIfNullOrWhiteSpace(options.DestinationPath);
             ArgumentNullException.ThrowIfNull(logger);
 
             m_Logger = logger;
-            m_Source = Path.GetFullPath(source);
-            m_Destination = Path.GetFullPath(destination);
+            m_Source = Path.GetFullPath(options.SourcePath);
+            m_Destination = Path.GetFullPath(options.DestinationPath);            
         }
 
         /// <summary>

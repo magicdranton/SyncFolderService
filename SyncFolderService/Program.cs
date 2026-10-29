@@ -10,6 +10,11 @@ HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
 // configure services
 
+//var configuration = new ConfigurationBuilder()
+//    .SetBasePath(Directory.GetCurrentDirectory())    
+//    .AddJsonFile(builder.Environment.IsDevelopment()? "appsettings.Development.json": "appsettings.json", optional: false, reloadOnChange: true)
+//    .Build();
+
 builder.Services.AddWindowsService();
 
 builder.Services.Configure<SyncFolderServiceOptions>(
@@ -17,13 +22,7 @@ builder.Services.Configure<SyncFolderServiceOptions>(
 
 builder.Services.AddSingleton(TimeProvider.System);
 
-builder.Services.AddSingleton(serviceProvider =>
-{
-    SyncFolderServiceOptions v_Options = serviceProvider.GetRequiredService<IOptions<SyncFolderServiceOptions>>().Value;
-    ILogger<CReplicator> v_Logger = serviceProvider.GetRequiredService<ILogger<CReplicator>>();
-
-    return new CReplicator(v_Options.SourcePath, v_Options.DestinationPath, v_Logger);
-});
+builder.Services.AddSingleton<CReplicator>();
 
 builder.Services.AddHostedService<Worker>();
 

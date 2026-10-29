@@ -38,7 +38,7 @@ namespace SyncFolderTests
         {
             WriteSourceFile("a.txt", "content");
 
-            SyncResult v_Result = CreateReplicator().Replicate();
+            SyncResult v_Result = CreateReplicator().ReplicateAsync();
 
             Assert.Equal(1L, v_Result.Copied);
             Assert.Equal(0L, v_Result.Updated);
@@ -53,7 +53,7 @@ namespace SyncFolderTests
             WriteSourceFile(GetRelativePath("sub", "b.txt"), "content");
             WriteSourceFile(GetRelativePath("sub", "deeper", "c.txt"), "content");
 
-            SyncResult v_Result = CreateReplicator().Replicate();
+            SyncResult v_Result = CreateReplicator().ReplicateAsync();
 
             Assert.Equal(2L, v_Result.Copied);
             Assert.Equal("content", File.ReadAllText(Path.Combine(m_Destination, GetRelativePath("sub", "b.txt"))));
@@ -68,7 +68,7 @@ namespace SyncFolderTests
             WriteSourceFile("a.txt", "new", v_Now.AddMinutes(1));
             WriteDestinationFile("a.txt", "old", v_Now);
 
-            SyncResult v_Result = CreateReplicator().Replicate();
+            SyncResult v_Result = CreateReplicator().ReplicateAsync();
 
             Assert.Equal(1L, v_Result.Updated);
             Assert.Equal(0L, v_Result.Copied);
@@ -83,7 +83,7 @@ namespace SyncFolderTests
             WriteSourceFile("a.txt", "source", v_Now);
             WriteDestinationFile("a.txt", "destination", v_Now.AddMinutes(1));
 
-            SyncResult v_Result = CreateReplicator().Replicate();
+            SyncResult v_Result = CreateReplicator().ReplicateAsync();
 
             Assert.Equal(0L, v_Result.Updated);
             Assert.Equal(0L, v_Result.Copied);
@@ -97,7 +97,7 @@ namespace SyncFolderTests
             WriteDestinationFile("a.txt", "content");
             WriteDestinationFile("b.txt", "content");
 
-            SyncResult v_Result = CreateReplicator().Replicate();
+            SyncResult v_Result = CreateReplicator().ReplicateAsync();
 
             Assert.Equal(1L, v_Result.Deleted);
             Assert.True(File.Exists(Path.Combine(m_Destination, "a.txt")));
@@ -111,7 +111,7 @@ namespace SyncFolderTests
             WriteDestinationFile(GetRelativePath("sub", "b.txt"), "content");
             WriteDestinationFile(GetRelativePath("sub", "deeper", "c.txt"), "content");
 
-            SyncResult v_Result = CreateReplicator().Replicate();
+            SyncResult v_Result = CreateReplicator().ReplicateAsync();
 
             Assert.Equal(1L, v_Result.DeletedFolders);
             Assert.Equal(2L, v_Result.Deleted);
@@ -124,7 +124,7 @@ namespace SyncFolderTests
             Directory.CreateDirectory(Path.Combine(m_Source, "empty"));
             WriteDestinationFile(GetRelativePath("empty", "b.txt"), "content");
 
-            SyncResult v_Result = CreateReplicator().Replicate();
+            SyncResult v_Result = CreateReplicator().ReplicateAsync();
 
             Assert.Equal(0L, v_Result.DeletedFolders);
             Assert.Equal(1L, v_Result.Deleted);
@@ -141,7 +141,7 @@ namespace SyncFolderTests
 
             WriteSourceFile("a.txt", "new", v_Now.AddMinutes(1));
 
-            SyncResult v_Result = CreateReplicator().Replicate();
+            SyncResult v_Result = CreateReplicator().ReplicateAsync();
 
             Assert.Equal(1L, v_Result.Updated);
             Assert.Equal(0L, v_Result.Failed);
@@ -157,7 +157,7 @@ namespace SyncFolderTests
             WriteSourceFile("Report.txt", "new", v_Now.AddMinutes(1));
             WriteDestinationFile("report.txt", "old", v_Now);
 
-            SyncResult v_Result = CreateReplicator().Replicate();
+            SyncResult v_Result = CreateReplicator().ReplicateAsync();
 
             Assert.Equal(1L, v_Result.Updated);
             Assert.Equal(0L, v_Result.Copied);
@@ -172,7 +172,7 @@ namespace SyncFolderTests
 
             Assert.False(Directory.Exists(m_Destination));
 
-            SyncResult v_Result = CreateReplicator().Replicate();
+            SyncResult v_Result = CreateReplicator().ReplicateAsync();
 
             Assert.True(Directory.Exists(m_Destination));
             Assert.Equal(1L, v_Result.Copied);
@@ -183,7 +183,7 @@ namespace SyncFolderTests
         {
             CReplicator v_Replicator = new CReplicator(Path.Combine(m_Root, "missing"), m_Destination, m_Logger);
 
-            Assert.Throws<DirectoryNotFoundException>(() => v_Replicator.Replicate());
+            Assert.Throws<DirectoryNotFoundException>(() => v_Replicator.ReplicateAsync());
         }
 
         [Fact]
@@ -199,7 +199,7 @@ namespace SyncFolderTests
             WriteDestinationFile("keep.txt", "content", v_Now.AddMinutes(1));
             WriteDestinationFile("delete.txt", "content", v_Now);
 
-            SyncResult v_Result = CreateReplicator().Replicate();
+            SyncResult v_Result = CreateReplicator().ReplicateAsync();
 
             Assert.Equal(1L, v_Result.Copied);
             Assert.Equal(1L, v_Result.Updated);
@@ -215,7 +215,7 @@ namespace SyncFolderTests
             WriteDestinationFile(GetRelativePath("sub2", "keep.txt"), "content");
             WriteDestinationFile(GetRelativePath("sub", "remove.txt"), "content");
 
-            SyncResult v_Result = CreateReplicator().Replicate();
+            SyncResult v_Result = CreateReplicator().ReplicateAsync();
 
             Assert.Equal(1L, v_Result.DeletedFolders);
             Assert.False(Directory.Exists(Path.Combine(m_Destination, "sub")));

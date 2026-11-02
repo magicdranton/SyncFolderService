@@ -1,7 +1,10 @@
 using System;
 using System.IO;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
+using SyncFolderService;
 using SyncFolderService.SyncLogic;
 
 namespace SyncFolderTests
@@ -12,6 +15,7 @@ namespace SyncFolderTests
         private readonly string m_Source;
         private readonly string m_Destination;
         private readonly ILogger<CReplicator> m_Logger = NullLogger<CReplicator>.Instance;
+        private readonly CReplicator m_Replicator;
 
         public CReplicatorTests()
         {
@@ -20,6 +24,9 @@ namespace SyncFolderTests
             m_Destination = Path.Combine(m_Root, "Destination");
 
             Directory.CreateDirectory(m_Source);
+
+            this.m_Replicator = new CReplicator(m_Logger);
+            m_Replicator.Configure(m_Source, m_Destination);
         }
 
         public void Dispose()
@@ -34,11 +41,11 @@ namespace SyncFolderTests
         }
 
         [Fact]
-        public void CopiesTheFilesThatAreMissingInTheDestination()
+        public async Task CopiesTheFilesThatAreMissingInTheDestination()
         {
-            WriteSourceFile("a.txt", "content");
+            WriteSourceFile("a.txt", "content");            
 
-            SyncResult v_Result = CreateReplicator().ReplicateAsync();
+            SyncResult v_Result = await m_Replicator.ReplicateAsync(default);
 
             Assert.Equal(1L, v_Result.Copied);
             Assert.Equal(0L, v_Result.Updated);
@@ -48,12 +55,12 @@ namespace SyncFolderTests
         }
 
         [Fact]
-        public void CopiesTheFilesOfTheSubFolders()
+        public async Task CopiesTheFilesOfTheSubFolders()
         {
             WriteSourceFile(GetRelativePath("sub", "b.txt"), "content");
             WriteSourceFile(GetRelativePath("sub", "deeper", "c.txt"), "content");
 
-            SyncResult v_Result = CreateReplicator().ReplicateAsync();
+            SyncResult v_Result = await m_Replicator.ReplicateAsync(default);
 
             Assert.Equal(2L, v_Result.Copied);
             Assert.Equal("content", File.ReadAllText(Path.Combine(m_Destination, GetRelativePath("sub", "b.txt"))));
@@ -61,14 +68,14 @@ namespace SyncFolderTests
         }
 
         [Fact]
-        public void UpdatesTheFilesThatAreOlderInTheDestination()
+        public async Task UpdatesTheFilesThatAreOlderInTheDestination()
         {
             DateTime v_Now = DateTime.UtcNow;
 
             WriteSourceFile("a.txt", "new", v_Now.AddMinutes(1));
             WriteDestinationFile("a.txt", "old", v_Now);
 
-            SyncResult v_Result = CreateReplicator().ReplicateAsync();
+            SyncResult v_Result = await m_Replicator.ReplicateAsync(default);
 
             Assert.Equal(1L, v_Result.Updated);
             Assert.Equal(0L, v_Result.Copied);
@@ -76,14 +83,14 @@ namespace SyncFolderTests
         }
 
         [Fact]
-        public void KeepsTheFilesThatAreUpToDate()
+        public async Task KeepsTheFilesThatAreUpToDate()
         {
             DateTime v_Now = DateTime.UtcNow.AddMinutes(-10);
 
             WriteSourceFile("a.txt", "source", v_Now);
             WriteDestinationFile("a.txt", "destination", v_Now.AddMinutes(1));
 
-            SyncResult v_Result = CreateReplicator().ReplicateAsync();
+            SyncResult v_Result = await m_Replicator.ReplicateAsync(default);
 
             Assert.Equal(0L, v_Result.Updated);
             Assert.Equal(0L, v_Result.Copied);
@@ -91,13 +98,13 @@ namespace SyncFolderTests
         }
 
         [Fact]
-        public void RemovesTheFilesThatAreAbsentInTheSource()
+        public async Task RemovesTheFilesThatAreAbsentInTheSource()
         {
             WriteSourceFile("a.txt", "content");
             WriteDestinationFile("a.txt", "content");
             WriteDestinationFile("b.txt", "content");
 
-            SyncResult v_Result = CreateReplicator().ReplicateAsync();
+            SyncResult v_Result = await m_Replicator.ReplicateAsync(default);
 
             Assert.Equal(1L, v_Result.Deleted);
             Assert.True(File.Exists(Path.Combine(m_Destination, "a.txt")));
@@ -105,13 +112,13 @@ namespace SyncFolderTests
         }
 
         [Fact]
-        public void RemovesTheFoldersThatAreAbsentInTheSource()
+        public async Task RemovesTheFoldersThatAreAbsentInTheSource()
         {
             WriteSourceFile("a.txt", "content");
             WriteDestinationFile(GetRelativePath("sub", "b.txt"), "content");
             WriteDestinationFile(GetRelativePath("sub", "deeper", "c.txt"), "content");
 
-            SyncResult v_Result = CreateReplicator().ReplicateAsync();
+            SyncResult v_Result = await m_Replicator.ReplicateAsync(default);
 
             Assert.Equal(1L, v_Result.DeletedFolders);
             Assert.Equal(2L, v_Result.Deleted);
@@ -119,12 +126,12 @@ namespace SyncFolderTests
         }
 
         [Fact]
-        public void KeepsTheEmptyFoldersThatExistInTheSource()
+        public async Task KeepsTheEmptyFoldersThatExistInTheSource()
         {
             Directory.CreateDirectory(Path.Combine(m_Source, "empty"));
             WriteDestinationFile(GetRelativePath("empty", "b.txt"), "content");
 
-            SyncResult v_Result = CreateReplicator().ReplicateAsync();
+            SyncResult v_Result = await m_Replicator.ReplicateAsync(default);
 
             Assert.Equal(0L, v_Result.DeletedFolders);
             Assert.Equal(1L, v_Result.Deleted);
@@ -133,7 +140,7 @@ namespace SyncFolderTests
         }
 
         [Fact]
-        public void UpdatesTheReadOnlyFilesOfTheDestination()
+        public async Task UpdatesTheReadOnlyFilesOfTheDestination()
         {
             DateTime v_Now = DateTime.UtcNow;
             string v_DestinationFile = WriteDestinationFile("a.txt", "old", v_Now);
@@ -141,7 +148,7 @@ namespace SyncFolderTests
 
             WriteSourceFile("a.txt", "new", v_Now.AddMinutes(1));
 
-            SyncResult v_Result = CreateReplicator().ReplicateAsync();
+            SyncResult v_Result = await m_Replicator.ReplicateAsync(default);
 
             Assert.Equal(1L, v_Result.Updated);
             Assert.Equal(0L, v_Result.Failed);
@@ -150,14 +157,14 @@ namespace SyncFolderTests
         }
 
         [Fact]
-        public void MatchesTheFilesIgnoringTheCase()
+        public async Task MatchesTheFilesIgnoringTheCase()
         {
             DateTime v_Now = DateTime.UtcNow;
 
             WriteSourceFile("Report.txt", "new", v_Now.AddMinutes(1));
             WriteDestinationFile("report.txt", "old", v_Now);
 
-            SyncResult v_Result = CreateReplicator().ReplicateAsync();
+            SyncResult v_Result = await m_Replicator.ReplicateAsync(default);
 
             Assert.Equal(1L, v_Result.Updated);
             Assert.Equal(0L, v_Result.Copied);
@@ -166,28 +173,29 @@ namespace SyncFolderTests
         }
 
         [Fact]
-        public void CreatesTheDestinationFolderWhenItIsMissing()
+        public async Task CreatesTheDestinationFolderWhenItIsMissing()
         {
             WriteSourceFile("a.txt", "content");
 
             Assert.False(Directory.Exists(m_Destination));
 
-            SyncResult v_Result = CreateReplicator().ReplicateAsync();
+            SyncResult v_Result = await m_Replicator.ReplicateAsync(default);
 
             Assert.True(Directory.Exists(m_Destination));
             Assert.Equal(1L, v_Result.Copied);
         }
 
         [Fact]
-        public void ThrowsWhenTheSourceFolderIsMissing()
+        public async Task ThrowsWhenTheSourceFolderIsMissing()
         {
-            CReplicator v_Replicator = new CReplicator(Path.Combine(m_Root, "missing"), m_Destination, m_Logger);
+            CReplicator v_Replicator = new CReplicator(m_Logger);
+            v_Replicator.Configure(Path.Combine(m_Root, "missing"), m_Destination);
 
-            Assert.Throws<DirectoryNotFoundException>(() => v_Replicator.ReplicateAsync());
+            await Assert.ThrowsAsync<DirectoryNotFoundException>(async () => await v_Replicator.ReplicateAsync(default));
         }
 
         [Fact]
-        public void CountsTheCopiedUpdatedAndDeletedFiles()
+        public async Task CountsTheCopiedUpdatedAndDeletedFiles()
         {
             DateTime v_Now = DateTime.UtcNow;
 
@@ -199,7 +207,7 @@ namespace SyncFolderTests
             WriteDestinationFile("keep.txt", "content", v_Now.AddMinutes(1));
             WriteDestinationFile("delete.txt", "content", v_Now);
 
-            SyncResult v_Result = CreateReplicator().ReplicateAsync();
+            SyncResult v_Result = await m_Replicator.ReplicateAsync(default);
 
             Assert.Equal(1L, v_Result.Copied);
             Assert.Equal(1L, v_Result.Updated);
@@ -209,24 +217,19 @@ namespace SyncFolderTests
         }
 
         [Fact]
-        public void DoesNotRemoveTheFoldersWithASharedPrefix()
+        public async Task DoesNotRemoveTheFoldersWithASharedPrefix()
         {
             WriteSourceFile(GetRelativePath("sub2", "keep.txt"), "content");
             WriteDestinationFile(GetRelativePath("sub2", "keep.txt"), "content");
             WriteDestinationFile(GetRelativePath("sub", "remove.txt"), "content");
 
-            SyncResult v_Result = CreateReplicator().ReplicateAsync();
+            SyncResult v_Result = await m_Replicator.ReplicateAsync(default);
 
             Assert.Equal(1L, v_Result.DeletedFolders);
             Assert.False(Directory.Exists(Path.Combine(m_Destination, "sub")));
             Assert.True(Directory.Exists(Path.Combine(m_Destination, "sub2")));
             Assert.True(File.Exists(Path.Combine(m_Destination, GetRelativePath("sub2", "keep.txt"))));
-        }
-
-        private CReplicator CreateReplicator()
-        {
-            return new CReplicator(m_Source, m_Destination, m_Logger);
-        }
+        }        
 
         private string WriteSourceFile(string p_RelativePath, string p_Content, DateTime? p_LastWriteTimeUtc = null)
         {

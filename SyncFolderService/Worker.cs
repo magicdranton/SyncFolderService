@@ -162,6 +162,32 @@ namespace SyncFolderService
 
         private bool ValidateOptions()
         {
+            if (m_Options.TaskList != null && m_Options.TaskList.Count > 0)
+            {
+                if (m_Options.Schedule != null && m_Options.Schedule.Enabled)
+                {
+                    if (m_Options.Schedule.Days == null || m_Options.Schedule.Days.Length == 0)
+                    {
+                        m_logger.LogCritical("Weekly scheduling is enabled but no Days are specified.");
+                        return false;
+                    }
+
+                    if (m_Options.Schedule.Hour < 0 || m_Options.Schedule.Hour > 23)
+                    {
+                        m_logger.LogCritical("Schedule.Hour must be between 0 and 23.");
+                        return false;
+                    }
+
+                    if (m_Options.Schedule.Minute < 0 || m_Options.Schedule.Minute > 59)
+                    {
+                        m_logger.LogCritical("Schedule.Minute must be between 0 and 59.");
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
             if (string.IsNullOrWhiteSpace(m_Options.SourcePath) || string.IsNullOrWhiteSpace(m_Options.DestinationPath))
             {
                 m_logger.LogCritical("The configuration section '{Section}' must contain the 'SourcePath' and the 'DestinationPath' setting.", SyncFolderServiceOptions.SectionName);
@@ -199,33 +225,68 @@ namespace SyncFolderService
 
         private async Task RunSynchronizationAsync(CancellationToken stoppingToken)
         {
-            m_logger.LogInformation("The synchronization started. Source folder: '{Source}'. Destination folder: '{Destination}'.", m_Replicator.Source, m_Replicator.Destination);
+            if (m_Options.TaskList == null || m_Options.TaskList.Count == 0) return;
 
-            try
+            foreach (var kvp in m_Options.TaskList)
             {
-                SyncResult v_Result = await m_Replicator.ReplicateAsync(stoppingToken);
-
-                m_logger.LogInformation(
-                    "The synchronization finished. Copied: {Copied}, updated: {Updated}, deleted: {Deleted}, deleted folders: {DeletedFolders}, failed: {Failed}.",
-                    v_Result.Copied,
-                    v_Result.Updated,
-                    v_Result.Deleted,
-                    v_Result.DeletedFolders,
-                    v_Result.Failed);
-
-                if (!v_Result.Success)
+                if (stoppingToken.IsCancellationRequested)
                 {
-                    m_logger.LogError("The synchronization finished with {Failed} error(s).", v_Result.Failed);
+                    break;
                 }
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                // The service is shutting down.
-            }
-            catch (Exception e)
-            {
-                m_logger.LogError(e, "The synchronization failed with an unexpected error.");
-            }
+
+                string taskName = kvp.Key;
+                SyncTaskOptions task = kvp.Value;
+
+                string description = string.IsNullOrWhiteSpace(task.Description) ? taskName : task.Description;
+                string source = task.Source ?? string.Empty;
+                string destination = task.Destination ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(destination))
+                {
+                    m_logger.LogError("Task '{Task}' ({Description}) is missing Source or Destination. Skipping.", taskName, description);
+                    continue;
+                }
+
+                try
+                {
+                    m_Replicator.Configure(source, destination);
+                }
+                catch (Exception ex)
+                {
+                    m_logger.LogError(ex, "Task '{Task}' ({Description}) has invalid paths. Skipping.", taskName, description);
+                    continue;
+                }
+
+                m_logger.LogInformation("The synchronization started for task '{Task}' ({Description}). Source folder: '{Source}'. Destination folder: '{Destination}'.", taskName, description, m_Replicator.Source, m_Replicator.Destination);
+
+                try
+                {
+                    SyncResult v_Result = await m_Replicator.ReplicateAsync(stoppingToken);
+
+                    m_logger.LogInformation(
+                        "The synchronization finished for task '{Task}' ({Description}). Copied: {Copied}, updated: {Updated}, deleted: {Deleted}, deleted folders: {DeletedFolders}, failed: {Failed}.",
+                        taskName,
+                        description,
+                        v_Result.Copied,
+                        v_Result.Updated,
+                        v_Result.Deleted,
+                        v_Result.DeletedFolders,
+                        v_Result.Failed);
+
+                    if (!v_Result.Success)
+                    {
+                        m_logger.LogError("The synchronization finished for task '{Task}' ({Description}) with {Failed} error(s).", taskName, description, v_Result.Failed);
+                    }
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception e)
+                {
+                    m_logger.LogError(e, "The synchronization failed for task '{Task}' ({Description}) with an unexpected error.", taskName, description);
+                }
+            }           
         }
 
         public override void Dispose()

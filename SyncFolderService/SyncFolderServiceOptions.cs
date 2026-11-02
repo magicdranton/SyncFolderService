@@ -29,6 +29,32 @@ namespace SyncFolderService
         /// Scheduling section for weekly runs.
         /// </summary>
         public SyncFolderScheduleOptions Schedule { get; set; } = new();
+
+        /// <summary>
+        /// List of sync tasks to execute.
+        /// </summary>
+        public Dictionary<string, SyncTaskOptions> TaskList { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Configuration for a single sync task.
+    /// </summary>
+    public sealed class SyncTaskOptions
+    {
+        /// <summary>
+        /// Description of the task for logging.
+        /// </summary>
+        public string Description { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Source folder path.
+        /// </summary>
+        public string Source { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Destination folder path.
+        /// </summary>
+        public string Destination { get; set; } = string.Empty;
     }
 
     /// <summary>

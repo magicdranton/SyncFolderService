@@ -11,7 +11,7 @@ namespace SyncFolderService.SyncLogic
     /// Files that are missing in the destination are copied, files that are older are updated and
     /// files and folders that are absent in the source are removed from the destination.
     /// </summary>
-    public sealed class CReplicator
+    public sealed class CReplicator (ILogger<CReplicator> m_Logger)
     {
         private static readonly EnumerationOptions FileEnumerationOptions = new EnumerationOptions
         {
@@ -28,22 +28,9 @@ namespace SyncFolderService.SyncLogic
             AttributesToSkip = 0,
             ReturnSpecialDirectories = false
         };
-
-        private readonly ILogger<CReplicator> m_Logger;
-        private string m_Source;
-        private string m_Destination;
-
-        public CReplicator(IOptions<SyncFolderServiceOptions> SyncOptions, ILogger<CReplicator> logger)
-        {
-            var options = SyncOptions.Value;
-            ArgumentException.ThrowIfNullOrWhiteSpace(options.SourcePath);
-            ArgumentException.ThrowIfNullOrWhiteSpace(options.DestinationPath);
-            ArgumentNullException.ThrowIfNull(logger);
-
-            m_Logger = logger;
-            m_Source = Path.GetFullPath(options.SourcePath);
-            m_Destination = Path.GetFullPath(options.DestinationPath);            
-        }
+                
+        private string? m_Source = null;
+        private string? m_Destination = null;        
 
         /// <summary>
         /// Full path of the source folder.
@@ -54,6 +41,14 @@ namespace SyncFolderService.SyncLogic
         /// Full path of the destination folder.
         /// </summary>
         public string Destination => m_Destination;
+
+        public void Configure(string source, string destination)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(source);
+            ArgumentException.ThrowIfNullOrWhiteSpace(destination);
+            m_Source = Path.GetFullPath(source);
+            m_Destination = Path.GetFullPath(destination);
+        }
 
         /// <summary>
         /// Runs a single synchronization and returns its summary.

@@ -1,10 +1,7 @@
 The task consists of following steps:
-1) Copy CReplicator logic into new SyncFolderService project.
-2) Adopt sync logic to use .NET core features (e.g. it seems to be that Hashtable is an obsolete data type)
-3) See if there are any data type issues. E.g. what if total file number is more than 2 billion? (int32 max value). If so, change for loop data types to long or ulong OR try using foreach loops
-3) Make SyncFolderService make logging into Windows Event Log instead of console output.
-	3.1) Logging should be minimal: 
-		3.1.1) Log when synchronization starts and ends.
-		3.1.2) On sync start: log source and destination folder paths.
-		3.1.3) On sync end: log summary of synchronization results: how many files were copied, deleted, or updated.
-		3.1.4) Log any errors that occur during synchronization.
+1) Append SyncFolderServiceOptions class with new options: TaskList from appsettings.json file. 
+2) TaskList is a list of sync tasks to be executed by the service. Each task has a name, source folder path, destination folder path, and description.
+3) Update the Worker class to read the TaskList from the configuration and execute each sync task in the list.
+4) Tasks must be executed sequentially in the order they are defined in the TaskList. If a task fails, the service should log the error and continue with the next task.
+5) Adjust CReplicator class for its object to be re-used for each task in the TaskList, allowing for different source and destination folders for each task. Do not instantiate CReplicator for eack Task
+6) Use Task's description for logging purposes to indicate which task is currently being executed.
